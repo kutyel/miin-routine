@@ -1,0 +1,39 @@
+{
+  "name": "miin-routine",
+  "version": "1.0.0",
+  "description": "Elm App that usess Firebase, Google Auth and custom-elements to take care of you. 😘",
+  "main": "src/index.js",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "elm-app test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kutyel/miin-routine.git"
+  },
+  "keywords": [
+    "miin",
+    "elm",
+    "custom-elements",
+    "firebase",
+    "elm-firestore"
+  ],
+  "author": "Flavio Corpa <flaviocorpa@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/kutyel/miin-routine/issues"
+  },
+  "homepage": "https://github.com/kutyel/miin-routine#readme",
+  "dependencies": {
+    "@google-web-components/google-chart": "^3.4.0",
+    "@webcomponents/webcomponentsjs": "^2.4.3",
+    "firebase": "^7.14.0",
+    "normalize.css": "^8.0.1"
+  },
+  "devDependencies": {
+    "create-elm-app": "^4.2.25",
+    "regenerator-runtime": "^0.13.5"
+  }
+}
