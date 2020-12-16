@@ -11,15 +11,12 @@ import Firestore
 import Firestore.Config as Config
 import Firestore.Decode as FSDecode
 import Firestore.Encode as FSEncode
-import Html exposing (Html, div, input, option, select)
-import Html.Attributes exposing (attribute, class, property, selected, style, type_, value)
-import Html.Events exposing (onInput)
+import Html exposing (Html, div)
+import Html.Attributes exposing (attribute, class, property, style)
 import Http exposing (Error(..))
-import Iso8601 exposing (toTime)
 import Json.Decode as Decode
 import Json.Decode.Pipeline as D
 import Json.Encode as JS
-import String exposing (fromInt)
 import Task
 import Time exposing (Month(..), Posix, toDay, toMonth, toYear, utc)
 
@@ -181,7 +178,7 @@ update msg model =
                         Nothing ->
                             ( { model | state = LoggedIn }, Cmd.none )
 
-                        Just { fields } ->
+                        Just _ ->
                             ( { model
                                 | state = LoggedIn
                                 , routines = model.routines ++ documents
@@ -360,46 +357,6 @@ formatDate date =
         , monthToString <| toMonth utc date
         , String.padLeft 2 '0' <| String.fromInt <| toDay utc date
         ]
-
-
-monthToFullname : Month -> String
-monthToFullname month =
-    case month of
-        Jan ->
-            "January"
-
-        Feb ->
-            "February"
-
-        Mar ->
-            "March"
-
-        Apr ->
-            "April"
-
-        May ->
-            "May"
-
-        Jun ->
-            "June"
-
-        Jul ->
-            "July"
-
-        Aug ->
-            "August"
-
-        Sep ->
-            "September"
-
-        Oct ->
-            "October"
-
-        Nov ->
-            "November"
-
-        Dec ->
-            "December"
 
 
 monthToString : Month -> String
