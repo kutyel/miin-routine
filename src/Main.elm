@@ -120,6 +120,15 @@ type Msg
     | FetchRoutines (Result Firestore.Error (Firestore.Documents Routine))
 
 
+callFirestore : Model -> Maybe Firestore.PageToken -> ( Model, Cmd Msg )
+callFirestore model token =
+    ( model
+    , model.firestore
+        |> Firestore.list decoder (listConfig token)
+        |> Task.attempt FetchRoutines
+    )
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -149,11 +158,7 @@ update msg model =
                         firestore =
                             model.firestore |> Firestore.withCollection ("users/" ++ uid ++ "/routines")
                     in
-                    ( { model | user = email, firestore = firestore, state = Loading }
-                    , firestore
-                        |> Firestore.list decoder (listConfig Nothing)
-                        |> Task.attempt FetchRoutines
-                    )
+                    callFirestore { model | user = email, firestore = firestore, state = Loading } Nothing
 
                 -- if for some reason we received another login (being logged in)... do nothing about it
                 _ ->
@@ -187,12 +192,7 @@ update msg model =
                             )
 
                 Just token ->
-                    ( { model | routines = model.routines ++ documents }
-                      -- TODO: refactor to use "applyFilters" pattern!
-                    , model.firestore
-                        |> Firestore.list decoder (listConfig <| Just token)
-                        |> Task.attempt FetchRoutines
-                    )
+                    callFirestore { model | routines = model.routines ++ documents } <| Just token
 
         FetchRoutines (Err (Firestore.Http_ (BadUrl url))) ->
             ( { model | state = Error <| "The URL " ++ url ++ " was invalid" }, Cmd.none )
