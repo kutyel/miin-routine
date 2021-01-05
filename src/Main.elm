@@ -1,13 +1,13 @@
 port module Main exposing (main)
 
 import Browser exposing (element)
-import Date exposing (fromPosix, toIsoString)
+import Date exposing (format, fromPosix, toIsoString)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
 import Element.Font as Font
-import Element.Input exposing (button)
+import Element.Input as Input
 import Firestore
 import Firestore.Config as Config
 import Firestore.Decode as FSDecode
@@ -51,6 +51,12 @@ type alias Routine =
     }
 
 
+type RoutineTime
+    = Morning
+    | Evening
+    | Both
+
+
 type alias User =
     { token : String
     , email : String
@@ -79,6 +85,7 @@ type alias Model =
     , selectedDate : Maybe Posix
     , state : State
     , user : String
+    , when : RoutineTime
     }
 
 
@@ -94,6 +101,7 @@ initialState config time =
     , selectedDate = time
     , state = LoggedOut
     , user = ""
+    , when = Morning
     }
 
 
@@ -116,6 +124,8 @@ listConfig token =
 type Msg
     = LogIn
     | LogOut
+    | MorningChecked Bool
+    | EveningChecked Bool
     | SelectedDate String
     | SetTime (Maybe Posix)
     | RoutineCompleted Posix
@@ -145,6 +155,12 @@ update msg model =
 
         SetTime time ->
             ( { model | selectedDate = time }, Cmd.none )
+
+        MorningChecked v ->
+            ( { model | when = Morning }, Cmd.none )
+
+        EveningChecked v ->
+            ( { model | when = Evening }, Cmd.none )
 
         SelectedDate date ->
             case toTime date of
@@ -296,20 +312,32 @@ logOut =
 
 
 viewSelectors : Model -> Element Msg -> Element Msg
-viewSelectors { selectedDate, user } node =
+viewSelectors { selectedDate, user, when } node =
     column [ width fill, centerY, spacing 30 ]
         [ row [ spacing 10, centerX ]
             [ logOut
             , small user
+            , Input.checkbox []
+                { onChange = MorningChecked
+                , icon = Input.defaultCheckbox
+                , checked = when == Morning
+                , label = Input.labelRight [] <| text "🌞"
+                }
+            , Input.checkbox []
+                { onChange = EveningChecked
+                , icon = Input.defaultCheckbox
+                , checked = when == Evening
+                , label = Input.labelRight [] <| text "🌛"
+                }
             , el [] <|
                 html <|
                     input
                         [ type_ "date"
                         , onInput SelectedDate
-                        , value (selectedDate |> Maybe.map formatDate |> Maybe.withDefault "")
+                        , value (selectedDate |> Maybe.map fmtDate |> Maybe.withDefault "")
                         ]
                         []
-            , button btns
+            , Input.button btns
                 { label = text "YES!"
                 , onPress = Maybe.map RoutineCompleted selectedDate
                 }
@@ -328,7 +356,7 @@ view ({ routines, state } as model) =
 
             LoggedOut ->
                 el [ centerY, centerX ] <|
-                    button btns { label = text "GOOGLE SIGN IN", onPress = Just LogIn }
+                    Input.button btns { label = text "GOOGLE SIGN IN", onPress = Just LogIn }
 
             Loading ->
                 viewSelectors model <|
@@ -351,13 +379,16 @@ view ({ routines, state } as model) =
                             , property "dateRows" <|
                                 JS.list (JS.list identity)
                                     (routines
-                                        |> gatherWith (\a b -> formatDate a.fields.date == formatDate b.fields.date)
+                                        |> gatherWith (\a b -> fmtDate a.fields.date == fmtDate b.fields.date)
                                         |> List.map
                                             (\( head, tail ) ->
-                                                [ JS.string <| formatDate head.fields.date
-                                                , JS.int <| List.length tail + 1
-
-                                                -- TODO: improve tooltip, JS.string "say something nice!"
+                                                let
+                                                    l =
+                                                        List.length tail + 1
+                                                in
+                                                [ JS.string <| fmtDate head.fields.date
+                                                , JS.int l
+                                                , JS.string <| fmtTooltip l head.fields.date
                                                 ]
                                             )
                                     )
@@ -374,9 +405,23 @@ grey =
     "#eee"
 
 
-formatDate : Posix -> String
-formatDate =
+fmtDate : Posix -> String
+fmtDate =
     fromPosix utc >> toIsoString
+
+
+fmtTooltip : Int -> Posix -> String
+fmtTooltip n date =
+    "<div style='font-size:16px; padding:12px'>"
+        ++ (format "MMMM dd, y" <| fromPosix utc date)
+        ++ ": <strong>"
+        ++ (if n == 1 then
+                "Morning"
+
+            else
+                "Morning & Evening"
+           )
+        ++ "</strong></div>"
 
 
 settings : JS.Value
