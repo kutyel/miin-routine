@@ -55,7 +55,6 @@ type alias Routine =
 type RoutineTime
     = Morning
     | Evening
-    | Both
 
 
 type alias User =
@@ -163,10 +162,10 @@ update msg model =
         SetTime time ->
             ( { model | selectedDate = time }, Cmd.none )
 
-        MorningChecked v ->
+        MorningChecked _ ->
             ( { model | when = Morning }, Cmd.none )
 
-        EveningChecked v ->
+        EveningChecked _ ->
             ( { model | when = Evening }, Cmd.none )
 
         SelectedDate date ->
