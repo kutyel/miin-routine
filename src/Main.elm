@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser exposing (element)
+import Date exposing (fromPosix, toIsoString)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -11,12 +12,15 @@ import Firestore
 import Firestore.Config as Config
 import Firestore.Decode as FSDecode
 import Firestore.Encode as FSEncode
-import Html exposing (Html, div)
-import Html.Attributes exposing (attribute, class, property, style)
+import Html exposing (Html, div, input)
+import Html.Attributes exposing (attribute, class, property, style, type_, value)
+import Html.Events exposing (onInput)
 import Http exposing (Error(..))
+import Iso8601 exposing (toTime)
 import Json.Decode as Decode
 import Json.Decode.Pipeline as D
 import Json.Encode as JS
+import List.Extra exposing (gatherWith)
 import Task
 import Time exposing (Month(..), Posix, toDay, toMonth, toYear, utc)
 
@@ -112,10 +116,11 @@ listConfig token =
 type Msg
     = LogIn
     | LogOut
-    | LoggedInData (Result Decode.Error User)
-    | LoggedInError (Result Decode.Error ErrorData)
+    | SelectedDate String
     | SetTime (Maybe Posix)
     | RoutineCompleted Posix
+    | LoggedInData (Result Decode.Error User)
+    | LoggedInError (Result Decode.Error ErrorData)
     | RecordRoutine (Result Firestore.Error (Firestore.Document Routine))
     | FetchRoutines (Result Firestore.Error (Firestore.Documents Routine))
 
@@ -140,6 +145,14 @@ update msg model =
 
         SetTime time ->
             ( { model | selectedDate = time }, Cmd.none )
+
+        SelectedDate date ->
+            case toTime date of
+                Ok timestamp ->
+                    ( { model | selectedDate = Just timestamp }, Cmd.none )
+
+                Err _ ->
+                    ( model, Cmd.none )
 
         RoutineCompleted date ->
             ( model
@@ -288,6 +301,14 @@ viewSelectors { selectedDate, user } node =
         [ row [ spacing 10, centerX ]
             [ logOut
             , small user
+            , el [] <|
+                html <|
+                    input
+                        [ type_ "date"
+                        , onInput SelectedDate
+                        , value (selectedDate |> Maybe.map formatDate |> Maybe.withDefault "")
+                        ]
+                        []
             , button btns
                 { label = text "YES!"
                 , onPress = Maybe.map RoutineCompleted selectedDate
@@ -330,10 +351,13 @@ view ({ routines, state } as model) =
                             , property "dateRows" <|
                                 JS.list (JS.list identity)
                                     (routines
+                                        |> gatherWith (\a b -> formatDate a.fields.date == formatDate b.fields.date)
                                         |> List.map
-                                            (\x ->
-                                                [ JS.string <| formatDate x.fields.date
-                                                , JS.int <| x.fields.times
+                                            (\( head, tail ) ->
+                                                [ JS.string <| formatDate head.fields.date
+                                                , JS.int <| List.length tail + 1
+
+                                                -- TODO: improve tooltip, JS.string "say something nice!"
                                                 ]
                                             )
                                     )
@@ -351,52 +375,8 @@ grey =
 
 
 formatDate : Posix -> String
-formatDate date =
-    String.join "-"
-        [ String.fromInt <| toYear utc date
-        , monthToString <| toMonth utc date
-        , String.padLeft 2 '0' <| String.fromInt <| toDay utc date
-        ]
-
-
-monthToString : Month -> String
-monthToString month =
-    case month of
-        Jan ->
-            "01"
-
-        Feb ->
-            "02"
-
-        Mar ->
-            "03"
-
-        Apr ->
-            "04"
-
-        May ->
-            "05"
-
-        Jun ->
-            "06"
-
-        Jul ->
-            "07"
-
-        Aug ->
-            "08"
-
-        Sep ->
-            "09"
-
-        Oct ->
-            "10"
-
-        Nov ->
-            "11"
-
-        Dec ->
-            "12"
+formatDate =
+    fromPosix utc >> toIsoString
 
 
 settings : JS.Value

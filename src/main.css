@@ -4,6 +4,17 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
 }
+input[type="date"] {
+  font: 1rem -apple-system, BlinkMacSystemFont, sans-serif;
+  box-sizing: border-box;
+  padding: 0px 8px;
+  border-radius: 5px;
+  border-width: 1px;
+  height: 2rem;
+  width: 10rem;
+  outline: none;
+  text-transform: uppercase;
+}
 google-calendar {
   width: 920px;
 }

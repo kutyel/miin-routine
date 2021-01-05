@@ -11,7 +11,11 @@ class Calendar extends GoogleChart {
     return { dateRows: { type: Array, observer: "_dateRowsChanged" } };
   }
   _dateRowsChanged(data) {
-    super.rows = data.map(([date, _, tooltip]) => [new Date(date), 1, tooltip]);
+    super.rows = data.map(([date, value, tooltip]) => [
+      new Date(date),
+      value,
+      tooltip,
+    ]);
   }
 }
 
