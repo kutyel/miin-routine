@@ -29,7 +29,11 @@ initializeApp({
 
 const app = Elm.Main.init({
   node: document.getElementById("root"),
-  flags: [process.env.ELM_APP_API_KEY, process.env.ELM_APP_PROJECT_ID],
+  flags: [
+    process.env.ELM_APP_API_KEY,
+    process.env.ELM_APP_PROJECT_ID,
+    [window.innerHeight, window.innerWidth],
+  ],
 });
 
 app.ports.signIn.subscribe(() =>

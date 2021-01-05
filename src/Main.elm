@@ -1,6 +1,7 @@
 port module Main exposing (main)
 
 import Browser exposing (element)
+import Browser.Events exposing (onResize)
 import Date exposing (format, fromPosix, toIsoString)
 import Element exposing (..)
 import Element.Background as Background
@@ -86,15 +87,16 @@ type alias Model =
     , state : State
     , user : String
     , when : RoutineTime
+    , device : Device
     }
 
 
 type alias Flags =
-    ( String, String )
+    ( String, String, ( Int, Int ) )
 
 
-initialState : Config.Config -> Maybe Posix -> Model
-initialState config time =
+initialState : Config.Config -> Maybe Posix -> Device -> Model
+initialState config time device =
     { config = config
     , firestore = Firestore.init config
     , routines = []
@@ -102,12 +104,13 @@ initialState config time =
     , state = LoggedOut
     , user = ""
     , when = Morning
+    , device = device
     }
 
 
 init : Flags -> ( Model, Cmd Msg )
-init ( apiKey, project ) =
-    ( initialState (Config.new { apiKey = apiKey, project = project }) Nothing
+init ( apiKey, project, ( h, w ) ) =
+    ( initialState (Config.new { apiKey = apiKey, project = project }) Nothing <| classifyDevice { height = h, width = w }
     , Task.perform (Just >> SetTime) Time.now
     )
 
@@ -124,6 +127,7 @@ listConfig token =
 type Msg
     = LogIn
     | LogOut
+    | ResizedApp Int Int
     | MorningChecked Bool
     | EveningChecked Bool
     | SelectedDate String
@@ -151,7 +155,10 @@ update msg model =
             ( model, signIn () )
 
         LogOut ->
-            ( initialState model.config model.selectedDate, signOut () )
+            ( initialState model.config model.selectedDate model.device, signOut () )
+
+        ResizedApp w h ->
+            ( { model | device = classifyDevice { height = h, width = w } }, Cmd.none )
 
         SetTime time ->
             ( { model | selectedDate = time }, Cmd.none )
@@ -312,24 +319,26 @@ logOut =
 
 
 viewSelectors : Model -> Element Msg -> Element Msg
-viewSelectors { selectedDate, user, when } node =
-    column [ width fill, centerY, spacing 30 ]
-        [ row [ spacing 10, centerX ]
-            [ logOut
-            , small user
-            , Input.checkbox []
+viewSelectors { device, selectedDate, user, when } node =
+    let
+        morningCheckbox =
+            Input.checkbox []
                 { onChange = MorningChecked
                 , icon = Input.defaultCheckbox
                 , checked = when == Morning
                 , label = Input.labelRight [] <| text "🌞"
                 }
-            , Input.checkbox []
+
+        eveningCheckbox =
+            Input.checkbox []
                 { onChange = EveningChecked
                 , icon = Input.defaultCheckbox
                 , checked = when == Evening
                 , label = Input.labelRight [] <| text "🌛"
                 }
-            , el [] <|
+
+        datePicker =
+            el [] <|
                 html <|
                     input
                         [ type_ "date"
@@ -337,13 +346,35 @@ viewSelectors { selectedDate, user, when } node =
                         , value (selectedDate |> Maybe.map fmtDate |> Maybe.withDefault "")
                         ]
                         []
-            , Input.button btns
+
+        btn =
+            Input.button btns
                 { label = text "YES!"
                 , onPress = Maybe.map RoutineCompleted selectedDate
                 }
-            ]
-        , el [ centerX ] node
-        ]
+    in
+    case ( device.class, device.orientation ) of
+        ( Phone, Portrait ) ->
+            column [ width fill, centerY, spacing 10 ]
+                [ row [ spacing 10, centerX ]
+                    [ logOut, small user ]
+                , row [ spacing 10, centerX ]
+                    [ morningCheckbox, eveningCheckbox, datePicker, btn ]
+                , el [ centerX, width <| px 500 ] node
+                ]
+
+        ( _, _ ) ->
+            column [ width fill, centerY, spacing 30 ]
+                [ row [ spacing 10, centerX ]
+                    [ logOut
+                    , small user
+                    , morningCheckbox
+                    , eveningCheckbox
+                    , datePicker
+                    , btn
+                    ]
+                , el [ centerX ] node
+                ]
 
 
 view : Model -> Html Msg
@@ -476,7 +507,8 @@ settings =
 subscriptions : Model -> Sub Msg
 subscriptions _ =
     Sub.batch
-        [ signInInfo (Decode.decodeValue userDataDecoder >> LoggedInData)
+        [ onResize ResizedApp
+        , signInInfo (Decode.decodeValue userDataDecoder >> LoggedInData)
         , signInError (Decode.decodeValue logInErrorDecoder >> LoggedInError)
         ]
 
