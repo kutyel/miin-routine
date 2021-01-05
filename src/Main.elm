@@ -22,7 +22,7 @@ import Json.Decode.Pipeline as D
 import Json.Encode as JS
 import List.Extra exposing (gatherWith)
 import Task
-import Time exposing (Month(..), Posix, toDay, toMonth, toYear, utc)
+import Time exposing (Month(..), Posix, utc)
 
 
 
