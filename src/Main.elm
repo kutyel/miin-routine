@@ -49,12 +49,14 @@ port signOut : () -> Cmd msg
 type alias Routine =
     { date : Posix
     , times : Int
+    , when : RoutineTime
     }
 
 
 type RoutineTime
     = Morning
     | Evening
+    | Both
 
 
 type alias User =
@@ -162,11 +164,27 @@ update msg model =
         SetTime time ->
             ( { model | selectedDate = time }, Cmd.none )
 
-        MorningChecked _ ->
-            ( { model | when = Morning }, Cmd.none )
+        MorningChecked morn ->
+            case ( model.when, morn ) of
+                ( Evening, True ) ->
+                    ( { model | when = Both }, Cmd.none )
 
-        EveningChecked _ ->
-            ( { model | when = Evening }, Cmd.none )
+                ( _, True ) ->
+                    ( { model | when = Morning }, Cmd.none )
+
+                ( _, False ) ->
+                    ( { model | when = Evening }, Cmd.none )
+
+        EveningChecked eve ->
+            case ( model.when, eve ) of
+                ( Morning, True ) ->
+                    ( { model | when = Both }, Cmd.none )
+
+                ( _, True ) ->
+                    ( { model | when = Evening }, Cmd.none )
+
+                ( _, False ) ->
+                    ( { model | when = Morning }, Cmd.none )
 
         SelectedDate date ->
             case toTime date of
@@ -179,7 +197,7 @@ update msg model =
         RoutineCompleted date ->
             ( model
             , model.firestore
-                |> Firestore.insert decoder (encoder date)
+                |> Firestore.insert decoder (encoder date model.when)
                 |> Task.attempt RecordRoutine
             )
 
@@ -249,12 +267,33 @@ update msg model =
             ( { model | state = Error message }, Cmd.none )
 
 
-encoder : Posix -> FSEncode.Encoder
-encoder date =
+encoder : Posix -> RoutineTime -> FSEncode.Encoder
+encoder date when =
     FSEncode.document
         [ ( "date", FSEncode.timestamp date )
-        , ( "times", FSEncode.int 1 )
+        , ( "times"
+          , FSEncode.int <|
+                if when == Both then
+                    2
+
+                else
+                    1
+          )
+        , ( "when", FSEncode.string <| routineToStr when )
         ]
+
+
+routineToStr : RoutineTime -> String
+routineToStr when =
+    case when of
+        Morning ->
+            "Morning"
+
+        Evening ->
+            "Evening"
+
+        Both ->
+            "Morning & Evening"
 
 
 decoder : FSDecode.Decoder Routine
@@ -262,6 +301,27 @@ decoder =
     FSDecode.document Routine
         |> FSDecode.required "date" FSDecode.timestamp
         |> FSDecode.required "times" FSDecode.int
+        |> FSDecode.optional "when" whenDecoder Morning
+
+
+whenDecoder : FSDecode.Field RoutineTime
+whenDecoder =
+    FSDecode.string
+        |> FSDecode.andThen
+            (\str ->
+                case str of
+                    "Morning" ->
+                        FSDecode.succeed Morning
+
+                    "Evening" ->
+                        FSDecode.succeed Evening
+
+                    "Morning & Evening" ->
+                        FSDecode.succeed Both
+
+                    _ ->
+                        FSDecode.fail "Could not parse strange routine time :S"
+            )
 
 
 userDataDecoder : Decode.Decoder User
@@ -324,7 +384,7 @@ viewSelectors { device, selectedDate, user, when } node =
             Input.checkbox []
                 { onChange = MorningChecked
                 , icon = Input.defaultCheckbox
-                , checked = when == Morning
+                , checked = when == Morning || when == Both
                 , label = Input.labelRight [] <| text "🌞"
                 }
 
@@ -332,7 +392,7 @@ viewSelectors { device, selectedDate, user, when } node =
             Input.checkbox []
                 { onChange = EveningChecked
                 , icon = Input.defaultCheckbox
-                , checked = when == Evening
+                , checked = when == Evening || when == Both
                 , label = Input.labelRight [] <| text "🌛"
                 }
 
@@ -362,7 +422,7 @@ viewSelectors { device, selectedDate, user, when } node =
                 , el [ centerX, width <| px 500 ] node
                 ]
 
-        ( _, _ ) ->
+        _ ->
             column [ width fill, centerY, spacing 30 ]
                 [ row [ spacing 10, centerX ]
                     [ logOut
@@ -413,12 +473,14 @@ view ({ routines, state } as model) =
                                         |> List.map
                                             (\( head, tail ) ->
                                                 let
-                                                    l =
-                                                        List.length tail + 1
+                                                    -- we want to know if a day has multiple entries or if
+                                                    -- in one go we recorded both "day & night"
+                                                    quantity =
+                                                        Maybe.withDefault 0 <| List.maximum [ List.length tail + 1, head.fields.times ]
                                                 in
                                                 [ JS.string <| fmtDate head.fields.date
-                                                , JS.int l
-                                                , JS.string <| fmtTooltip l head.fields.date
+                                                , JS.int quantity
+                                                , JS.string <| fmtTooltip head.fields.when head.fields.date
                                                 ]
                                             )
                                     )
@@ -440,17 +502,12 @@ fmtDate =
     fromPosix utc >> toIsoString
 
 
-fmtTooltip : Int -> Posix -> String
-fmtTooltip n date =
+fmtTooltip : RoutineTime -> Posix -> String
+fmtTooltip when date =
     "<div style='font-size:16px; padding:12px'>"
         ++ (format "MMMM dd, y" <| fromPosix utc date)
         ++ ": <strong>"
-        ++ (if n == 1 then
-                "Morning"
-
-            else
-                "Morning & Evening"
-           )
+        ++ routineToStr when
         ++ "</strong></div>"
 
 
