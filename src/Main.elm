@@ -471,16 +471,25 @@ view ({ routines, state } as model) =
                                     (routines
                                         |> gatherWith (\a b -> fmtDate a.fields.date == fmtDate b.fields.date)
                                         |> List.map
-                                            (\( head, tail ) ->
+                                            (\( { fields }, tail ) ->
                                                 let
                                                     -- we want to know if a day has multiple entries or if
                                                     -- in one go we recorded both "day & night"
                                                     quantity =
-                                                        Maybe.withDefault 0 <| List.maximum [ List.length tail + 1, head.fields.times ]
+                                                        Maybe.withDefault 0 <| List.maximum [ List.length tail + 1, fields.times ]
+
+                                                    -- if there are mutiples entries for one day...
+                                                    -- it means you did the routine at least twice!
+                                                    when =
+                                                        if quantity >= 2 then
+                                                            Both
+
+                                                        else
+                                                            fields.when
                                                 in
-                                                [ JS.string <| fmtDate head.fields.date
+                                                [ JS.string <| fmtDate fields.date
                                                 , JS.int quantity
-                                                , JS.string <| fmtTooltip head.fields.when head.fields.date
+                                                , JS.string <| fmtTooltip when fields.date
                                                 ]
                                             )
                                     )
