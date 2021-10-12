@@ -15,4 +15,4 @@ jobs:
       - name: Check that Elm code compiles!
         run: elm make src/Main.elm
       - name: Run elm-review
-        run: npx elm-review --template jfmengels/elm-review-unused/example
+        run: yarn review
