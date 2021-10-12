@@ -1,9 +1,9 @@
-port module Main exposing (main)
+port module Main exposing (Flags, Model, Msg, Routine, RoutineTime, State, main)
 
 import Browser exposing (element)
 import Browser.Events exposing (onResize)
 import Date exposing (format, fromPosix, toIsoString)
-import Element exposing (..)
+import Element exposing (Attribute, Color, Device, DeviceClass(..), Element, Orientation(..), centerX, centerY, classifyDevice, column, el, fill, focused, height, html, htmlAttribute, layout, link, padding, px, rgb255, row, scrollbarX, spacing, text, width)
 import Element.Background as Background
 import Element.Border as Border
 import Element.Events as Events
@@ -14,14 +14,15 @@ import Firestore.Config as Config
 import Firestore.Decode as FSDecode
 import Firestore.Encode as FSEncode
 import Html exposing (Html, div, input)
-import Html.Attributes exposing (attribute, class, property, style, type_, value)
+import Html.Attributes exposing (attribute, property, style, type_, value)
 import Html.Events exposing (onInput)
 import Http exposing (Error(..))
 import Iso8601 exposing (toTime)
 import Json.Decode as Decode
-import Json.Decode.Pipeline as D
+import Json.Decode.Pipeline as Decode
 import Json.Encode as JS
 import List.Extra exposing (gatherWith)
+import Loading exposing (LoaderType(..), defaultConfig)
 import Task
 import Time exposing (Month(..), Posix, utc)
 
@@ -60,8 +61,7 @@ type RoutineTime
 
 
 type alias User =
-    { token : String
-    , email : String
+    { email : String
     , uid : String
     }
 
@@ -208,6 +208,7 @@ update msg model =
             case model.state of
                 LoggedOut ->
                     let
+                        firestore : Firestore.Firestore
                         firestore =
                             model.firestore |> Firestore.withCollection ("users/" ++ uid ++ "/routines")
                     in
@@ -327,17 +328,16 @@ whenDecoder =
 userDataDecoder : Decode.Decoder User
 userDataDecoder =
     Decode.succeed User
-        |> D.required "token" Decode.string
-        |> D.required "email" Decode.string
-        |> D.required "uid" Decode.string
+        |> Decode.required "email" Decode.string
+        |> Decode.required "uid" Decode.string
 
 
 logInErrorDecoder : Decode.Decoder ErrorData
 logInErrorDecoder =
     Decode.succeed ErrorData
-        |> D.required "code" Decode.string
-        |> D.required "message" Decode.string
-        |> D.required "credential" Decode.string
+        |> Decode.required "code" Decode.string
+        |> Decode.required "message" Decode.string
+        |> Decode.required "credential" Decode.string
 
 
 
@@ -380,6 +380,7 @@ logOut =
 viewSelectors : Model -> Element Msg -> Element Msg
 viewSelectors { device, selectedDate, user, when } node =
     let
+        morningCheckbox : Element Msg
         morningCheckbox =
             Input.checkbox []
                 { onChange = MorningChecked
@@ -388,6 +389,7 @@ viewSelectors { device, selectedDate, user, when } node =
                 , label = Input.labelRight [] <| text "🌞"
                 }
 
+        eveningCheckbox : Element Msg
         eveningCheckbox =
             Input.checkbox []
                 { onChange = EveningChecked
@@ -396,6 +398,7 @@ viewSelectors { device, selectedDate, user, when } node =
                 , label = Input.labelRight [] <| text "🌛"
                 }
 
+        datePicker : Element Msg
         datePicker =
             el [] <|
                 html <|
@@ -406,6 +409,7 @@ viewSelectors { device, selectedDate, user, when } node =
                         ]
                         []
 
+        btn : Element Msg
         btn =
             Input.button btns
                 { label = text "YES!"
@@ -419,7 +423,7 @@ viewSelectors { device, selectedDate, user, when } node =
                     [ logOut, small user ]
                 , row [ spacing 10, centerX ]
                     [ morningCheckbox, eveningCheckbox, datePicker, btn ]
-                , el [ centerX, width <| px 500 ] node
+                , el [ centerX, width (px 400), height (px 200), scrollbarX ] node
                 ]
 
         _ ->
@@ -451,7 +455,7 @@ view ({ routines, state } as model) =
             Loading ->
                 viewSelectors model <|
                     html <|
-                        div [ class "spinner" ] [ div [] [], div [] [], div [] [], div [] [] ]
+                        div [] [ Loading.render Circle { defaultConfig | color = "#f8d6dc", size = 100 } Loading.On ]
 
             LoggedIn ->
                 viewSelectors model <|
@@ -475,11 +479,13 @@ view ({ routines, state } as model) =
                                                 let
                                                     -- we want to know if a day has multiple entries or if
                                                     -- in one go we recorded both "day & night"
+                                                    quantity : Int
                                                     quantity =
                                                         Maybe.withDefault 0 <| List.maximum [ List.length tail + 1, fields.times ]
 
                                                     -- if there are mutiples entries for one day...
                                                     -- it means you did the routine at least twice!
+                                                    when : RoutineTime
                                                     when =
                                                         if quantity >= 2 then
                                                             Both

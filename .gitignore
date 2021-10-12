@@ -15,3 +15,7 @@ node_modules
 
 # secrets
 .env
+
+# parcel
+.parcel-cache
+dist

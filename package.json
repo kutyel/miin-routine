@@ -1,12 +1,15 @@
 {
   "name": "miin-routine",
   "version": "1.0.0",
-  "description": "Elm App that usess Firebase, Google Auth and custom-elements to take care of you. 😘",
-  "main": "src/index.js",
+  "description": "Elm App that uses Firebase, Google Auth and custom-elements to take care of you. 😘",
   "directories": {
     "test": "tests"
   },
+  "browserslist": "last 2 Safari versions, last 2 Chrome versions",
   "scripts": {
+    "build": "parcel build public/index.html",
+    "start": "parcel public/index.html",
+    "review": "elm-review --template jfmengels/elm-review-common/example",
     "test": "elm-app test"
   },
   "repository": {
@@ -28,12 +31,14 @@
   "homepage": "https://github.com/kutyel/miin-routine#readme",
   "dependencies": {
     "@google-web-components/google-chart": "^3.4.0",
-    "@webcomponents/webcomponentsjs": "^2.4.3",
-    "firebase": "^7.14.0",
-    "normalize.css": "^8.0.1"
+    "firebase": "^9.1.2"
   },
   "devDependencies": {
-    "create-elm-app": "^4.2.25",
-    "regenerator-runtime": "^0.13.5"
+    "@parcel/packager-raw-url": "2.0.0-rc.0",
+    "@parcel/transformer-elm": "2.0.0-rc.0",
+    "@parcel/transformer-webmanifest": "2.0.0-rc.0",
+    "elm": "^0.19.1-5",
+    "elm-review": "^2.6.1",
+    "parcel": "^2.0.0-rc.0"
   }
 }
